@@ -26,7 +26,7 @@ pub(crate) struct Secret {
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub(crate) enum SecretDuration {
+pub enum SecretDuration {
 	Seconds(u64),
 	Minutes(u64),
 	Hours(u64),
@@ -54,11 +54,7 @@ impl SecretDuration {
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::{Secret, SecretDuration};
-	use chrono::Utc;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{Currency, Randomness},
-	};
+	use frame_support::{pallet_prelude::*, traits::Currency};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -127,7 +123,7 @@ pub mod pallet {
 		}
 
 		/// Creates new secret
-		fn create_secret(
+		fn do_create_secret(
 			owner: &T::AccountId,
 			to: &T::AccountId,
 			unique_id: u64,
@@ -160,7 +156,7 @@ pub mod pallet {
 		}
 
 		/// Deletes secret
-		fn delete_secret(
+		fn do_delete_secret(
 			owner: &T::AccountId,
 			to: &T::AccountId,
 			unique_id: u64,
@@ -182,7 +178,7 @@ pub mod pallet {
 		}
 
 		/// Renovates secret by extending the expiration timestamp
-		fn extend_secret(unique_id: u64, duration: SecretDuration) -> DispatchResult {
+		fn do_extend_secret(unique_id: u64, duration: SecretDuration) -> DispatchResult {
 			let expiration_timestamp = SecretDuration::to_timestamp(&duration);
 			SecretMap::<T>::try_mutate(unique_id, |maybe_secret| -> DispatchResult {
 				if let Some(secret) = maybe_secret {
@@ -197,6 +193,43 @@ pub mod pallet {
 				expiration_timestamp,
 			});
 			Ok(())
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight(0)]
+		pub fn create_secret(
+			origin: OriginFor<T>,
+			to: T::AccountId,
+			duration: SecretDuration,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			let unique_id = Pallet::<T>::gen_unique_id();
+			Pallet::<T>::do_create_secret(&owner, &to, unique_id, duration)?;
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn delete_secret(
+			origin: OriginFor<T>,
+			to: T::AccountId,
+			unique_id: u64,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			Pallet::<T>::do_delete_secret(&owner, &to, unique_id)?;
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn extend_secret(
+			origin: OriginFor<T>,
+			unique_id: u64,
+			duration: SecretDuration,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			Pallet::<T>::do_extend_secret(unique_id, duration)?;
+			Ok(().into())
 		}
 	}
 }
