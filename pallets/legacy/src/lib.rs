@@ -13,7 +13,7 @@ mod tests;
 #[cfg(test)]
 mod secrets;
 
-pub use pallet::*;
+use chrono::Utc;
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
@@ -25,9 +25,35 @@ pub(crate) struct Secret {
 	pub(crate) expiration_timestamp: u64,
 }
 
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub(crate) enum SecretDuration {
+	Seconds(u64),
+	Minutes(u64),
+	Hours(u64),
+	Days(u64),
+	Weeks(u64),
+	Months(u64),
+	Years(u64),
+}
+
+impl SecretDuration {
+	fn to_timestamp(&self) -> u64 {
+		let now = Utc::now().timestamp() as u64;
+		match self {
+			SecretDuration::Seconds(seconds) => now + seconds,
+			SecretDuration::Minutes(minutes) => now + minutes * 60,
+			SecretDuration::Hours(hours) => now + hours * 60 * 60,
+			SecretDuration::Days(days) => now + days * 60 * 60 * 24,
+			SecretDuration::Weeks(weeks) => now + weeks * 60 * 60 * 24 * 7,
+			SecretDuration::Months(months) => now + months * 60 * 60 * 24 * 30,
+			SecretDuration::Years(years) => now + years * 60 * 60 * 24 * 365,
+		}
+	}
+}
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::Secret;
+	use crate::{Secret, SecretDuration};
 	use chrono::Utc;
 	use frame_support::{
 		pallet_prelude::*,
@@ -105,9 +131,9 @@ pub mod pallet {
 			owner: &T::AccountId,
 			to: &T::AccountId,
 			unique_id: u64,
-			duration_ms: u64,
+			duration: SecretDuration,
 		) -> DispatchResult {
-			let expiration_timestamp = Utc::now().timestamp() as u64 + duration_ms;
+			let expiration_timestamp = SecretDuration::to_timestamp(&duration);
 			let new_secret = Secret { id: unique_id, expiration_timestamp };
 			SecretMap::<T>::insert(unique_id, new_secret.clone());
 			// Try appending into the bounded vec, or create a new one
@@ -116,7 +142,7 @@ pub mod pallet {
 					secrets
 						.try_push(new_secret.id)
 						.map_err(|_| Error::<T>::MaximumSecretsStored)?;
-					*maybe_secrets = Some(secrets);
+					// *maybe_secrets = Some(secrets);
 					Ok(())
 				} else {
 					let mut secrets = BoundedVec::<Secret, T::MaximumStored>::default();
@@ -124,7 +150,7 @@ pub mod pallet {
 					Ok(())
 				}
 			})?;
-			Self::deposit_event(Event::SecretCreated {
+			Pallet::<T>::deposit_event(Event::SecretCreated {
 				id: unique_id,
 				owner: owner.clone(),
 				to: to.clone(),
@@ -151,7 +177,25 @@ pub mod pallet {
 					Ok(())
 				}
 			})?;
-			Self::deposit_event(Event::SecretDeleted { id: unique_id });
+			Pallet::<T>::deposit_event(Event::SecretDeleted { id: unique_id });
+			Ok(())
+		}
+
+		/// Renovates secret by extending the expiration timestamp
+		fn extend_secret(unique_id: u64, duration: SecretDuration) -> DispatchResult {
+			let expiration_timestamp = SecretDuration::to_timestamp(&duration);
+			SecretMap::<T>::try_mutate(unique_id, |maybe_secret| -> DispatchResult {
+				if let Some(secret) = maybe_secret {
+					secret.expiration_timestamp = expiration_timestamp;
+					Ok(())
+				} else {
+					Ok(())
+				}
+			})?;
+			Pallet::<T>::deposit_event(Event::SecretExtended {
+				id: unique_id,
+				expiration_timestamp,
+			});
 			Ok(())
 		}
 	}
