@@ -66,6 +66,8 @@ impl pallet_legacy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	// type Currency = Balances;
 	type MaximumStored = ConstU32<2_u32>;
+	type InitialNonce = ConstU64<4_u64>;
+	type Nonce = u64;
 }
 
 // Build genesis storage according to the mock runtime.

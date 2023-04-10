@@ -15,8 +15,8 @@ mod secrets;
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub(crate) struct Secret {
-	pub(crate) id: u64,
+pub(crate) struct Secret<T: Config> {
+	pub(crate) id: T::Nonce,
 	// pub(crate) service: String,
 	// pub(crate) username: String,
 	// pub(crate) password: String,
@@ -54,18 +54,37 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use pallet_timestamp::{self as timestamp};
-	use sp_runtime::traits::SaturatedConversion;
+	use sp_runtime::traits::{CheckedAdd, SaturatedConversion};
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub initial_nonce: T::Nonce,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { initial_nonce: T::InitialNonce::get().into() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			Nonce::<T>::put(self.initial_nonce);
+		}
+	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub(super) type Nonce<T: Config> = StorageValue<_, T::Nonce, ValueQuery>;
 
 	/// Maps the Secret struct to the unique_id.
 	#[pallet::storage]
-	pub(super) type SecretMap<T: Config> = StorageMap<_, Twox64Concat, u64, Secret>;
+	pub(super) type SecretMap<T: Config> = StorageMap<_, Twox64Concat, T::Nonce, Secret<T>>;
 
 	#[pallet::storage]
 	pub(super) type OwnerMap<T: Config> = StorageDoubleMap<
@@ -74,7 +93,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		BoundedVec<u64, T::MaximumStored>,
+		BoundedVec<T::Nonce, T::MaximumStored>,
 	>;
 
 	// type BalanceOf<T> =
@@ -86,7 +105,7 @@ pub mod pallet {
 		DuplicateSecret,
 		/// An account can't exceed the `MaximumStored` constant
 		MaximumSecretsStored,
-		/// The total secrets stored can't exceed the u64 limit
+		/// The total secrets stored can't exceed the nonce limit
 		BoundsOverflow,
 	}
 
@@ -94,11 +113,16 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new secret was successfully created
-		SecretCreated { id: u64, owner: T::AccountId, to: T::AccountId, expiration_timestamp: u64 },
+		SecretCreated {
+			id: T::Nonce,
+			owner: T::AccountId,
+			to: T::AccountId,
+			expiration_timestamp: u64,
+		},
 		/// A secret was successfully deleted
-		SecretDeleted { id: u64 },
+		SecretDeleted { id: T::Nonce },
 		/// A secret was successfully extended
-		SecretExtended { id: u64, expiration_timestamp: u64 },
+		SecretExtended { id: T::Nonce, expiration_timestamp: u64 },
 	}
 
 	#[pallet::config]
@@ -109,14 +133,28 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type MaximumStored: Get<u32>;
+
+		#[pallet::constant]
+		type InitialNonce: Get<u64>;
+
+		type Nonce: Parameter
+			+ Member
+			+ Default
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ From<u64>
+			+ Into<u64>
+			+ CheckedAdd
+			+ MaxEncodedLen;
 	}
 
 	// Pallet internal functions
 	impl<T: Config> Pallet<T> {
 		// Generates and returns the unique_id
-		fn gen_unique_id() -> u64 {
+		fn gen_unique_id() -> T::Nonce {
 			let current_nonce = Nonce::<T>::get();
-			let next_nonce = current_nonce.checked_add(1).expect("Should not overflow");
+			let next_nonce =
+				current_nonce.checked_add(&T::Nonce::from(1_u64)).expect("Should not overflow");
 			Nonce::<T>::put(next_nonce);
 			next_nonce
 		}
@@ -140,7 +178,7 @@ pub mod pallet {
 						.map_err(|_| Error::<T>::MaximumSecretsStored)?;
 					Ok(())
 				} else {
-					let mut secrets = BoundedVec::<u64, T::MaximumStored>::default();
+					let mut secrets = BoundedVec::<T::Nonce, T::MaximumStored>::default();
 					secrets.try_push(unique_id).map_err(|_| Error::<T>::BoundsOverflow)?;
 					*maybe_secrets = Some(secrets);
 					Ok(())
@@ -159,7 +197,7 @@ pub mod pallet {
 		fn do_delete_secret(
 			owner: T::AccountId,
 			to: T::AccountId,
-			unique_id: u64,
+			unique_id: T::Nonce,
 		) -> DispatchResult {
 			dbg!(&owner, &to, &unique_id);
 			SecretMap::<T>::remove(unique_id);
@@ -189,7 +227,7 @@ pub mod pallet {
 		}
 
 		/// Renovates secret by extending the expiration timestamp
-		fn do_extend_secret(unique_id: u64, duration: SecretDuration) -> DispatchResult {
+		fn do_extend_secret(unique_id: T::Nonce, duration: SecretDuration) -> DispatchResult {
 			let now = <timestamp::Pallet<T>>::get().saturated_into();
 			let expiration_timestamp = SecretDuration::to_timestamp(&duration, now);
 			SecretMap::<T>::try_mutate(unique_id, |maybe_secret| -> DispatchResult {
@@ -225,7 +263,7 @@ pub mod pallet {
 		pub fn delete_secret(
 			origin: OriginFor<T>,
 			to: T::AccountId,
-			unique_id: u64,
+			unique_id: T::Nonce,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
 			Pallet::<T>::do_delete_secret(owner, to, unique_id)?;
@@ -235,7 +273,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn extend_secret(
 			origin: OriginFor<T>,
-			unique_id: u64,
+			unique_id: T::Nonce,
 			duration: SecretDuration,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
