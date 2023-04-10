@@ -13,8 +13,6 @@ mod tests;
 #[cfg(test)]
 mod secrets;
 
-use chrono::Utc;
-
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub(crate) struct Secret {
@@ -37,8 +35,7 @@ pub enum SecretDuration {
 }
 
 impl SecretDuration {
-	fn to_timestamp(&self) -> u64 {
-		let now = Utc::now().timestamp() as u64;
+	fn to_timestamp(&self, now: u64) -> u64 {
 		match self {
 			SecretDuration::Seconds(seconds) => now + seconds,
 			SecretDuration::Minutes(minutes) => now + minutes * 60,
@@ -54,8 +51,10 @@ impl SecretDuration {
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::{Secret, SecretDuration};
-	use frame_support::{pallet_prelude::*, traits::Currency};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use pallet_timestamp::{self as timestamp};
+	use sp_runtime::traits::SaturatedConversion;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -78,8 +77,8 @@ pub mod pallet {
 		BoundedVec<u64, T::MaximumStored>,
 	>;
 
-	type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	// type BalanceOf<T> =
+	// 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -103,10 +102,10 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + timestamp::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type Currency: Currency<Self::AccountId>;
+		// type Currency: Currency<Self::AccountId>;
 
 		#[pallet::constant]
 		type MaximumStored: Get<u32>;
@@ -126,23 +125,24 @@ pub mod pallet {
 		fn do_create_secret(
 			owner: &T::AccountId,
 			to: &T::AccountId,
-			unique_id: u64,
 			duration: SecretDuration,
 		) -> DispatchResult {
-			let expiration_timestamp = SecretDuration::to_timestamp(&duration);
+			let now = <timestamp::Pallet<T>>::get().saturated_into();
+			let expiration_timestamp = SecretDuration::to_timestamp(&duration, now);
+			let unique_id = Pallet::<T>::gen_unique_id();
 			let new_secret = Secret { id: unique_id, expiration_timestamp };
 			SecretMap::<T>::insert(unique_id, new_secret.clone());
 			// Try appending into the bounded vec, or create a new one
 			OwnerMap::<T>::try_mutate(owner, to, |maybe_secrets| -> DispatchResult {
-				if let Some(mut secrets) = maybe_secrets.clone() {
+				if let Some(ref mut secrets) = maybe_secrets {
 					secrets
 						.try_push(new_secret.id)
 						.map_err(|_| Error::<T>::MaximumSecretsStored)?;
-					// *maybe_secrets = Some(secrets);
 					Ok(())
 				} else {
-					let mut secrets = BoundedVec::<Secret, T::MaximumStored>::default();
-					secrets.try_push(new_secret.clone()).map_err(|_| Error::<T>::BoundsOverflow)?;
+					let mut secrets = BoundedVec::<u64, T::MaximumStored>::default();
+					secrets.try_push(unique_id).map_err(|_| Error::<T>::BoundsOverflow)?;
+					*maybe_secrets = Some(secrets);
 					Ok(())
 				}
 			})?;
@@ -157,29 +157,41 @@ pub mod pallet {
 
 		/// Deletes secret
 		fn do_delete_secret(
-			owner: &T::AccountId,
-			to: &T::AccountId,
+			owner: T::AccountId,
+			to: T::AccountId,
 			unique_id: u64,
 		) -> DispatchResult {
+			dbg!(&owner, &to, &unique_id);
 			SecretMap::<T>::remove(unique_id);
-			// Try appending into the bounded vec
-			OwnerMap::<T>::try_mutate(owner, to, |maybe_secret_ids| -> DispatchResult {
-				if let Some(secret_ids) = maybe_secret_ids {
-					secret_ids.into_iter().position(|id| id == &unique_id).map(|index| {
-						secret_ids.remove(index);
-					});
-					Ok(())
-				} else {
-					Ok(())
-				}
-			})?;
+			OwnerMap::<T>::try_mutate(
+				owner.clone(),
+				to.clone(),
+				|maybe_secret_ids| -> DispatchResult {
+					if let Some(secret_ids) = maybe_secret_ids {
+						secret_ids.iter().position(|id| id == &unique_id).map(|index| {
+							secret_ids.remove(index);
+						});
+						if secret_ids.len() == 0 {
+							*maybe_secret_ids = None;
+							// TODO: Remove the owner-beneficiary pair from the OwnerMap
+							// OwnerMap::<T>::remove(owner, to);
+						}
+						Ok(())
+					} else {
+						Ok(())
+					}
+				},
+			)?;
+			dbg!("asd");
 			Pallet::<T>::deposit_event(Event::SecretDeleted { id: unique_id });
+			dbg!("qwe");
 			Ok(())
 		}
 
 		/// Renovates secret by extending the expiration timestamp
 		fn do_extend_secret(unique_id: u64, duration: SecretDuration) -> DispatchResult {
-			let expiration_timestamp = SecretDuration::to_timestamp(&duration);
+			let now = <timestamp::Pallet<T>>::get().saturated_into();
+			let expiration_timestamp = SecretDuration::to_timestamp(&duration, now);
 			SecretMap::<T>::try_mutate(unique_id, |maybe_secret| -> DispatchResult {
 				if let Some(secret) = maybe_secret {
 					secret.expiration_timestamp = expiration_timestamp;
@@ -205,8 +217,7 @@ pub mod pallet {
 			duration: SecretDuration,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			let unique_id = Pallet::<T>::gen_unique_id();
-			Pallet::<T>::do_create_secret(&owner, &to, unique_id, duration)?;
+			Pallet::<T>::do_create_secret(&owner, &to, duration)?;
 			Ok(().into())
 		}
 
@@ -217,7 +228,7 @@ pub mod pallet {
 			unique_id: u64,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			Pallet::<T>::do_delete_secret(&owner, &to, unique_id)?;
+			Pallet::<T>::do_delete_secret(owner, to, unique_id)?;
 			Ok(().into())
 		}
 
