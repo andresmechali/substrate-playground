@@ -64,7 +64,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { initial_nonce: T::InitialNonce::get().into() }
+			Self { initial_nonce: 8_u64.into() }
 		}
 	}
 
@@ -199,7 +199,6 @@ pub mod pallet {
 			to: T::AccountId,
 			unique_id: T::Nonce,
 		) -> DispatchResult {
-			dbg!(&owner, &to, &unique_id);
 			SecretMap::<T>::remove(unique_id);
 			OwnerMap::<T>::try_mutate(
 				owner.clone(),
@@ -220,9 +219,7 @@ pub mod pallet {
 					}
 				},
 			)?;
-			dbg!("asd");
 			Pallet::<T>::deposit_event(Event::SecretDeleted { id: unique_id });
-			dbg!("qwe");
 			Ok(())
 		}
 

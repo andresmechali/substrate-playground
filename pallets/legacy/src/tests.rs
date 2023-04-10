@@ -102,5 +102,6 @@ fn removes_secrets() {
 		// Assert that storage is updated
 		assert_eq!(OwnerMap::<Test>::get(1, 2), None);
 		assert_eq!(SecretMap::<Test>::get(2), None);
+		// assert_eq!(1, 2);
 	});
 }
