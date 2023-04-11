@@ -1,6 +1,7 @@
 use crate as pallet_legacy;
 use frame_support::traits::{ConstU16, ConstU32, ConstU64};
 use frame_system as system;
+use pallet_balances::AccountData;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -23,7 +24,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Legacy: pallet_legacy,
-		// Aura: pallet_aura::{Pallet, Storage, Config<T>},
+		Balances: pallet_balances,
 	}
 );
 
@@ -45,7 +46,7 @@ impl system::Config for Test {
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -64,10 +65,25 @@ impl pallet_timestamp::Config for Test {
 
 impl pallet_legacy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	// type Currency = Balances;
 	type MaximumStored = ConstU32<2_u32>;
 	type InitialNonce = ConstU64<77_u64>;
 	type Nonce = u64;
+	type StakeCurrency = Balances;
+}
+
+/// Existential deposit.
+pub const EXISTENTIAL_DEPOSIT: u64 = 500;
+
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+	type Balance = u64;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
 }
 
 // Build genesis storage according to the mock runtime.

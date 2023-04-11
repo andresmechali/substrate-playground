@@ -51,10 +51,16 @@ impl SecretDuration {
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::{Secret, SecretDuration};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		dispatch::DispatchResult,
+		pallet_prelude::*,
+		traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+	};
 	use frame_system::pallet_prelude::*;
 	use pallet_timestamp::{self as timestamp};
 	use sp_runtime::traits::{CheckedAdd, SaturatedConversion};
+
+	const LEGACY_ID: LockIdentifier = *b"//legacy";
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -123,6 +129,8 @@ pub mod pallet {
 		SecretDeleted { id: T::Nonce },
 		/// A secret was successfully extended
 		SecretExtended { id: T::Nonce, expiration_timestamp: u64 },
+		/// Capital has been locked
+		CapitalLocked { user: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::config]
@@ -146,7 +154,12 @@ pub mod pallet {
 			+ Into<u64>
 			+ CheckedAdd
 			+ MaxEncodedLen;
+
+		type StakeCurrency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 	}
+
+	type BalanceOf<T> =
+		<<T as Config>::StakeCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	// Pallet internal functions
 	impl<T: Config> Pallet<T> {
@@ -275,6 +288,18 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			Pallet::<T>::do_extend_secret(unique_id, duration)?;
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn lock_capital(
+			origin: OriginFor<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let user = ensure_signed(origin)?;
+			T::StakeCurrency::set_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
+
+			Self::deposit_event(Event::CapitalLocked { user, amount });
 			Ok(().into())
 		}
 	}
