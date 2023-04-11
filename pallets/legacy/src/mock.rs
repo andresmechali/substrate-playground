@@ -25,6 +25,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Legacy: pallet_legacy,
 		Balances: pallet_balances,
+		RandomnessCollectiveFlip: pallet_randomness_collective_flip,
 	}
 );
 
@@ -63,12 +64,15 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+impl pallet_randomness_collective_flip::Config for Test {}
+
 impl pallet_legacy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaximumStored = ConstU32<2_u32>;
 	type InitialNonce = ConstU64<77_u64>;
 	type Nonce = u64;
 	type StakeCurrency = Balances;
+	type RandomGenerator = RandomnessCollectiveFlip;
 }
 
 /// Existential deposit.

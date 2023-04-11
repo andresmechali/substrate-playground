@@ -54,7 +54,7 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResult,
 		pallet_prelude::*,
-		traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+		traits::{Currency, LockIdentifier, LockableCurrency, Randomness, WithdrawReasons},
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_timestamp::{self as timestamp};
@@ -137,6 +137,8 @@ pub mod pallet {
 		LockExtended { user: T::AccountId, amount: BalanceOf<T> },
 		/// Lock has been removed
 		LockRemoved { user: T::AccountId },
+		/// RandomNumber
+		RandomNumber(T::Hash),
 	}
 
 	#[pallet::config]
@@ -162,6 +164,8 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		type StakeCurrency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+
+		type RandomGenerator: Randomness<Self::Hash, Self::BlockNumber>;
 	}
 
 	type BalanceOf<T> =
@@ -335,6 +339,18 @@ pub mod pallet {
 			T::StakeCurrency::remove_lock(LEGACY_ID, &user);
 
 			Self::deposit_event(Event::LockRemoved { user });
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn get_random_number(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let nonce = Self::gen_unique_id();
+			let encoded_nonce = nonce.encode();
+
+			let (random_number, _) = T::RandomGenerator::random(&encoded_nonce);
+
+			Self::deposit_event(Event::RandomNumber(random_number));
 			Ok(().into())
 		}
 	}

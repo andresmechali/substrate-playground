@@ -289,6 +289,7 @@ impl pallet_legacy::Config for Runtime {
 	type Nonce = u64;
 	type InitialNonce = ConstU64<4_u64>;
 	type StakeCurrency = Balances;
+	type RandomGenerator = RandomnessCollectiveFlip;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

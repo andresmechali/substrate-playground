@@ -236,3 +236,13 @@ fn cannot_lock_or_extend_if_insufficient_balance() {
 		);
 	});
 }
+
+#[test]
+fn generate_random_number() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		// Generates random number
+		assert_ok!(Legacy::get_random_number(RuntimeOrigin::signed(ALICE)),);
+	});
+}
