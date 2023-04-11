@@ -113,6 +113,8 @@ pub mod pallet {
 		MaximumSecretsStored,
 		/// The total secrets stored can't exceed the nonce limit
 		BoundsOverflow,
+		/// Not enough balance
+		InsufficientBalance,
 	}
 
 	#[pallet::event]
@@ -301,6 +303,10 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let user = ensure_signed(origin)?;
+			ensure!(
+				T::StakeCurrency::free_balance(&user) >= amount,
+				Error::<T>::InsufficientBalance
+			);
 			T::StakeCurrency::set_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
 
 			Self::deposit_event(Event::CapitalLocked { user, amount });
@@ -313,6 +319,10 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let user = ensure_signed(origin)?;
+			ensure!(
+				T::StakeCurrency::free_balance(&user) >= amount,
+				Error::<T>::InsufficientBalance
+			);
 			T::StakeCurrency::extend_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
 
 			Self::deposit_event(Event::LockExtended { user, amount });

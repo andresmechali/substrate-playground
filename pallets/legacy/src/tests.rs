@@ -211,3 +211,28 @@ fn locks_extends_and_unlocks() {
 		assert_eq!(<Test as super::Config>::StakeCurrency::locks(ALICE), vec![]);
 	});
 }
+
+#[test]
+fn cannot_lock_or_extend_if_insufficient_balance() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		// Attempts to lock more capital that free_balance
+		assert_noop!(
+			Legacy::lock_capital(RuntimeOrigin::signed(ALICE), 10_000),
+			Error::<Test>::InsufficientBalance
+		);
+
+		// Locks correct amount of balance
+		assert_ok!(Legacy::lock_capital(RuntimeOrigin::signed(ALICE), 100));
+
+		// Assert that the correct event was deposited
+		System::assert_last_event(Event::CapitalLocked { user: ALICE, amount: 100 }.into());
+
+		// Attempts to extend lock with more capital than free_balance
+		assert_noop!(
+			Legacy::extend_lock(RuntimeOrigin::signed(ALICE), 10_000),
+			Error::<Test>::InsufficientBalance
+		);
+	});
+}
