@@ -1,5 +1,8 @@
-use crate::{mock::*, pallet::OwnerMap, Error, Event, Secret, SecretDuration, SecretMap};
-use frame_support::{assert_noop, assert_ok};
+use crate::{
+	mock::*, pallet::OwnerMap, Error, Event, Secret, SecretDuration, SecretMap, LEGACY_ID,
+};
+use frame_support::{assert_noop, assert_ok, traits::WithdrawReasons};
+use pallet_balances::BalanceLock;
 use sp_core::bounded::BoundedVec;
 
 const ALICE: u64 = 1;
@@ -144,7 +147,7 @@ fn removes_secrets() {
 }
 
 #[test]
-fn locks_capital() {
+fn locks_extends_and_unlocks() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
@@ -154,9 +157,57 @@ fn locks_capital() {
 		// Assert that the correct event was deposited
 		System::assert_last_event(Event::CapitalLocked { user: ALICE, amount: 100 }.into());
 
+		// Assert that the lock exists
 		assert_eq!(
-			<Test as super::Config>::StakeCurrency::free_balance(ALICE),
-			ALICE_INITIAL_BALANCE - 100
+			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			vec![BalanceLock {
+				id: LEGACY_ID,
+				amount: 100,
+				reasons: WithdrawReasons::all().into()
+			}]
 		);
+
+		System::set_block_number(2);
+
+		// Lock more capital
+		assert_ok!(Legacy::lock_capital(RuntimeOrigin::signed(ALICE), 200));
+
+		// Assert that the correct event was deposited
+		System::assert_last_event(Event::CapitalLocked { user: ALICE, amount: 200 }.into());
+
+		// Assert that the lock has been updated
+		assert_eq!(
+			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			vec![BalanceLock {
+				id: LEGACY_ID,
+				amount: 200,
+				reasons: WithdrawReasons::all().into()
+			}]
+		);
+
+		// Extend lock
+		assert_ok!(Legacy::extend_lock(RuntimeOrigin::signed(ALICE), 300));
+
+		// Assert that the correct event was deposited
+		System::assert_last_event(Event::LockExtended { user: ALICE, amount: 300 }.into());
+
+		// Assert that the lock has been updated
+		assert_eq!(
+			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			vec![BalanceLock {
+				id: LEGACY_ID,
+				amount: 300,
+				reasons: WithdrawReasons::all().into()
+			}]
+		);
+
+		// Remove lock
+		assert_ok!(Legacy::remove_lock(RuntimeOrigin::signed(ALICE)));
+
+		// Assert that the correct event was deposited
+		System::assert_last_event(Event::LockRemoved { user: ALICE }.into());
+
+		// Assert that the lock has been updated
+		assert_eq!(<Test as super::Config>::StakeCurrency::locks(ALICE), vec![]);
 	});
 }

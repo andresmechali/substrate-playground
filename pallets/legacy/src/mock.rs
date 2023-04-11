@@ -85,8 +85,3 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
 }
-
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-}

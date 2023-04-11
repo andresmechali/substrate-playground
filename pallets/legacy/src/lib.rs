@@ -60,7 +60,7 @@ pub mod pallet {
 	use pallet_timestamp::{self as timestamp};
 	use sp_runtime::traits::{CheckedAdd, SaturatedConversion};
 
-	const LEGACY_ID: LockIdentifier = *b"//legacy";
+	pub const LEGACY_ID: LockIdentifier = *b"//legacy";
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -131,6 +131,10 @@ pub mod pallet {
 		SecretExtended { id: T::Nonce, expiration_timestamp: u64 },
 		/// Capital has been locked
 		CapitalLocked { user: T::AccountId, amount: BalanceOf<T> },
+		/// Lock has been extended
+		LockExtended { user: T::AccountId, amount: BalanceOf<T> },
+		/// Lock has been removed
+		LockRemoved { user: T::AccountId },
 	}
 
 	#[pallet::config]
@@ -300,6 +304,27 @@ pub mod pallet {
 			T::StakeCurrency::set_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
 
 			Self::deposit_event(Event::CapitalLocked { user, amount });
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn extend_lock(
+			origin: OriginFor<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let user = ensure_signed(origin)?;
+			T::StakeCurrency::extend_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
+
+			Self::deposit_event(Event::LockExtended { user, amount });
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn remove_lock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let user = ensure_signed(origin)?;
+			T::StakeCurrency::remove_lock(LEGACY_ID, &user);
+
+			Self::deposit_event(Event::LockRemoved { user });
 			Ok(().into())
 		}
 	}
