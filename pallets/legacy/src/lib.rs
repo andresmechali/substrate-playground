@@ -48,17 +48,39 @@ impl SecretDuration {
 	}
 }
 
+#[derive(Encode, Decode, Default, PartialEq, Eq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct FundInfo<AccountId, Balance, BlockNumber> {
+	/// The account that will recieve the funds if the campaign is successful.
+	beneficiary: AccountId,
+	/// The amount of deposit placed.
+	deposit: Balance,
+	/// The total amount raised.
+	raised: Balance,
+	/// Block number after which funding must have succeeded.
+	end: BlockNumber,
+	/// Upper bound on `raised`.
+	goal: Balance,
+}
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::{Secret, SecretDuration};
+	use crate::{FundInfo, Secret, SecretDuration};
 	use frame_support::{
 		dispatch::DispatchResult,
+		inherent::Vec,
 		pallet_prelude::*,
-		traits::{Currency, LockIdentifier, LockableCurrency, Randomness, WithdrawReasons},
+		sp_runtime::traits::AccountIdConversion,
+		storage::child,
+		traits::{
+			Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, Randomness,
+			ReservableCurrency, WithdrawReasons,
+		},
+		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_timestamp::{self as timestamp};
-	use sp_runtime::traits::{CheckedAdd, SaturatedConversion};
+	use sp_runtime::traits::{CheckedAdd, Hash, SaturatedConversion, Zero};
 
 	pub const LEGACY_ID: LockIdentifier = *b"//legacy";
 
@@ -88,6 +110,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type Nonce<T: Config> = StorageValue<_, T::Nonce, ValueQuery>;
 
+	#[pallet::storage]
+	pub(super) type FundCount<T: Config> = StorageValue<_, FundIndex, ValueQuery>;
+
 	/// Maps the Secret struct to the unique_id.
 	#[pallet::storage]
 	pub(super) type SecretMap<T: Config> = StorageMap<_, Twox64Concat, T::Nonce, Secret<T>>;
@@ -102,8 +127,15 @@ pub mod pallet {
 		BoundedVec<T::Nonce, T::MaximumStored>,
 	>;
 
-	// type BalanceOf<T> =
-	// 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	#[pallet::storage]
+	#[pallet::getter(fn funds)]
+	/// Info on all of the funds
+	pub(super) type Funds<T: Config> =
+		StorageMap<_, Blake2_128Concat, FundIndex, FundInfoOf<T>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn fund_count)]
+	pub(super) type FoundCount<T: Config> = StorageValue<_, FundIndex, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -115,6 +147,8 @@ pub mod pallet {
 		BoundsOverflow,
 		/// Not enough balance
 		InsufficientBalance,
+		/// Ending is before current block
+		CannotEndInPast,
 	}
 
 	#[pallet::event]
@@ -139,6 +173,8 @@ pub mod pallet {
 		LockRemoved { user: T::AccountId },
 		/// RandomNumber
 		RandomNumber(T::Hash),
+		/// Fund created
+		FundCreated(FundIndex, T::BlockNumber),
 	}
 
 	#[pallet::config]
@@ -163,13 +199,27 @@ pub mod pallet {
 			+ CheckedAdd
 			+ MaxEncodedLen;
 
-		type StakeCurrency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+		type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
+			+ ReservableCurrency<Self::AccountId>;
 
 		type RandomGenerator: Randomness<Self::Hash, Self::BlockNumber>;
+
+		type SubmissionDeposit: Get<BalanceOf<Self>>;
+
+		type MinContribution: Get<BalanceOf<Self>>;
+
+		type RetirementPeriod: Get<Self::BlockNumber>;
 	}
 
 	type BalanceOf<T> =
-		<<T as Config>::StakeCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+	pub type FundIndex = u32;
+
+	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+	type FundInfoOf<T> =
+		FundInfo<AccountIdOf<T>, BalanceOf<T>, <T as frame_system::Config>::BlockNumber>;
 
 	// Pallet internal functions
 	impl<T: Config> Pallet<T> {
@@ -180,6 +230,13 @@ pub mod pallet {
 				current_nonce.checked_add(&T::Nonce::from(1_u64)).expect("Should not overflow");
 			Nonce::<T>::put(next_nonce);
 			next_nonce
+		}
+
+		fn get_fund_count() -> FundIndex {
+			let fund_count = FundCount::<T>::get();
+			let next_fund_count = fund_count.wrapping_add(1_u32);
+			FundCount::<T>::put(next_fund_count);
+			fund_count
 		}
 
 		/// Creates new secret
@@ -264,6 +321,39 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		fn fund_account_id(index: FundIndex) -> T::AccountId {
+			const PALLET_ID: PalletId = PalletId(*b"lgy/fund");
+			PALLET_ID.into_sub_account_truncating(index)
+		}
+
+		pub fn id_from_index(index: FundIndex) -> child::ChildInfo {
+			let mut buf = Vec::new();
+			buf.extend_from_slice(b"lgy/fund");
+			buf.extend_from_slice(&index.to_le_bytes()[..]);
+
+			child::ChildInfo::new_default(T::Hashing::hash(&buf[..]).as_ref())
+		}
+
+		pub fn contribution_put(index: FundIndex, who: &T::AccountId, amount: BalanceOf<T>) {
+			let id = Self::id_from_index(index);
+			who.using_encoded(|b| child::put(&id, b, &amount));
+		}
+
+		pub fn contribution_get(index: FundIndex, who: &T::AccountId) -> BalanceOf<T> {
+			let id = Self::id_from_index(index);
+			who.using_encoded(|b| child::get_or_default::<BalanceOf<T>>(&id, b))
+		}
+
+		pub fn contribution_kill(index: FundIndex, who: &T::AccountId) {
+			let id = Self::id_from_index(index);
+			who.using_encoded(|b| child::kill(&id, b));
+		}
+
+		pub fn crowdfund_kill(index: FundIndex) {
+			let id = Self::id_from_index(index);
+			let _ = child::clear_storage(&id, None, None);
+		}
 	}
 
 	#[pallet::call]
@@ -307,11 +397,8 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let user = ensure_signed(origin)?;
-			ensure!(
-				T::StakeCurrency::free_balance(&user) >= amount,
-				Error::<T>::InsufficientBalance
-			);
-			T::StakeCurrency::set_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
+			ensure!(T::Currency::free_balance(&user) >= amount, Error::<T>::InsufficientBalance);
+			T::Currency::set_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
 
 			Self::deposit_event(Event::CapitalLocked { user, amount });
 			Ok(().into())
@@ -323,11 +410,8 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let user = ensure_signed(origin)?;
-			ensure!(
-				T::StakeCurrency::free_balance(&user) >= amount,
-				Error::<T>::InsufficientBalance
-			);
-			T::StakeCurrency::extend_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
+			ensure!(T::Currency::free_balance(&user) >= amount, Error::<T>::InsufficientBalance);
+			T::Currency::extend_lock(LEGACY_ID, &user, amount, WithdrawReasons::all());
 
 			Self::deposit_event(Event::LockExtended { user, amount });
 			Ok(().into())
@@ -336,7 +420,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn remove_lock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let user = ensure_signed(origin)?;
-			T::StakeCurrency::remove_lock(LEGACY_ID, &user);
+			T::Currency::remove_lock(LEGACY_ID, &user);
 
 			Self::deposit_event(Event::LockRemoved { user });
 			Ok(().into())
@@ -351,6 +435,47 @@ pub mod pallet {
 			let (random_number, _) = T::RandomGenerator::random(&encoded_nonce);
 
 			Self::deposit_event(Event::RandomNumber(random_number));
+			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn create(
+			origin: OriginFor<T>,
+			beneficiary: AccountIdOf<T>,
+			goal: BalanceOf<T>,
+			end: T::BlockNumber,
+		) -> DispatchResultWithPostInfo {
+			let creator = ensure_signed(origin)?;
+
+			let now = <frame_system::Pallet<T>>::block_number();
+			ensure!(end > now, Error::<T>::CannotEndInPast);
+
+			let deposit = T::SubmissionDeposit::get();
+
+			let imbalance = T::Currency::withdraw(
+				&creator,
+				deposit,
+				WithdrawReasons::TRANSFER,
+				ExistenceRequirement::AllowDeath,
+			)?;
+
+			let index = Self::get_fund_count();
+
+			T::Currency::resolve_creating(&Self::fund_account_id(index.into()), imbalance);
+
+			Funds::<T>::insert(
+				index,
+				FundInfo {
+					beneficiary: beneficiary.clone(),
+					deposit,
+					goal,
+					end,
+					raised: Zero::zero(),
+				},
+			);
+
+			Self::deposit_event(Event::FundCreated(index, now));
+
 			Ok(().into())
 		}
 	}

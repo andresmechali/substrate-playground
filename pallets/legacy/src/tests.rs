@@ -159,7 +159,7 @@ fn locks_extends_and_unlocks() {
 
 		// Assert that the lock exists
 		assert_eq!(
-			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			<Test as super::Config>::Currency::locks(ALICE),
 			vec![BalanceLock {
 				id: LEGACY_ID,
 				amount: 100,
@@ -177,7 +177,7 @@ fn locks_extends_and_unlocks() {
 
 		// Assert that the lock has been updated
 		assert_eq!(
-			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			<Test as super::Config>::Currency::locks(ALICE),
 			vec![BalanceLock {
 				id: LEGACY_ID,
 				amount: 200,
@@ -193,7 +193,7 @@ fn locks_extends_and_unlocks() {
 
 		// Assert that the lock has been updated
 		assert_eq!(
-			<Test as super::Config>::StakeCurrency::locks(ALICE),
+			<Test as super::Config>::Currency::locks(ALICE),
 			vec![BalanceLock {
 				id: LEGACY_ID,
 				amount: 300,
@@ -208,7 +208,7 @@ fn locks_extends_and_unlocks() {
 		System::assert_last_event(Event::LockRemoved { user: ALICE }.into());
 
 		// Assert that the lock has been updated
-		assert_eq!(<Test as super::Config>::StakeCurrency::locks(ALICE), vec![]);
+		assert_eq!(<Test as super::Config>::Currency::locks(ALICE), vec![]);
 	});
 }
 

@@ -71,8 +71,11 @@ impl pallet_legacy::Config for Test {
 	type MaximumStored = ConstU32<2_u32>;
 	type InitialNonce = ConstU64<77_u64>;
 	type Nonce = u64;
-	type StakeCurrency = Balances;
+	type Currency = Balances;
 	type RandomGenerator = RandomnessCollectiveFlip;
+	type SubmissionDeposit = ();
+	type MinContribution = ();
+	type RetirementPeriod = ();
 }
 
 /// Existential deposit.
