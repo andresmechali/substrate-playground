@@ -319,6 +319,7 @@ impl pallet_legacy::Config for Runtime {
 	type SubmissionDeposit = ();
 	type MinContribution = ();
 	type RetirementPeriod = ();
+	type WeightInfo = pallet_legacy::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -387,6 +388,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_legacy, Legacy]
 	);
 }
 

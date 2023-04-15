@@ -151,7 +151,7 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
-		legacy: LegacyConfig { initial_nonce: 10_u64.into() },
+		legacy: LegacyConfig { initial_nonce: 0_u64.into() },
 		transaction_payment: Default::default(),
 	}
 }

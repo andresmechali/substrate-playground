@@ -13,6 +13,12 @@ mod tests;
 #[cfg(test)]
 mod secrets;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+pub mod weights;
+pub use weights::*;
+
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub(crate) struct Secret<T: Config> {
@@ -65,6 +71,7 @@ pub struct FundInfo<AccountId, Balance, BlockNumber> {
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
+	use super::weights::WeightInfo;
 	use crate::{FundInfo, Secret, SecretDuration};
 	use frame_support::{
 		dispatch::DispatchResult,
@@ -209,6 +216,8 @@ pub mod pallet {
 		type MinContribution: Get<BalanceOf<Self>>;
 
 		type RetirementPeriod: Get<Self::BlockNumber>;
+
+		type WeightInfo: WeightInfo;
 	}
 
 	type BalanceOf<T> =
@@ -358,7 +367,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::create_secret())]
 		pub fn create_secret(
 			origin: OriginFor<T>,
 			to: T::AccountId,
