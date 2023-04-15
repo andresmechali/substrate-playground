@@ -74,7 +74,7 @@ pub mod pallet {
 	use super::weights::WeightInfo;
 	use crate::{FundInfo, Secret, SecretDuration};
 	use frame_support::{
-		dispatch::DispatchResult,
+		dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, PaysFee, WeighData},
 		inherent::Vec,
 		pallet_prelude::*,
 		sp_runtime::traits::AccountIdConversion,
@@ -83,11 +83,36 @@ pub mod pallet {
 			Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, Randomness,
 			ReservableCurrency, WithdrawReasons,
 		},
+		weights::Weight,
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_timestamp::{self as timestamp};
 	use sp_runtime::traits::{CheckedAdd, Hash, SaturatedConversion, Zero};
+
+	pub struct Conditional(u32);
+	impl WeighData<(&bool, &u32)> for Conditional {
+		fn weigh_data(&self, (switch, val): (&bool, &u32)) -> Weight {
+			if *switch {
+				Weight::from_ref_time(val.saturating_mul(self.0) as u64)
+			} else {
+				Weight::from_ref_time(self.0 as u64)
+			}
+		}
+	}
+
+	// Implement ClassifyDispatch
+	impl<T> ClassifyDispatch<T> for Conditional {
+		fn classify_dispatch(&self, _: T) -> DispatchClass {
+			Default::default()
+		}
+	}
+
+	impl<T> PaysFee<T> for Conditional {
+		fn pays_fee(&self, _target: T) -> Pays {
+			Pays::Yes
+		}
+	}
 
 	pub const LEGACY_ID: LockIdentifier = *b"//legacy";
 
