@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use orml_currencies::BasicCurrencyAdapter;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -17,6 +18,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
+		Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
@@ -26,10 +28,11 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 // A few exports that help ease life for downstream crates.
-use frame_support::weights::{
-	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-};
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
@@ -42,6 +45,10 @@ pub use frame_support::{
 		IdentityFee, Weight,
 	},
 	StorageValue,
+};
+use frame_support::{
+	dispatch::{MaxEncodedLen, TypeInfo},
+	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -69,6 +76,10 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 
 /// Balance of an account.
 pub type Balance = u128;
+
+pub type Amount = i128;
+
+// pub type CurrencyId = u128;
 
 /// Index of a transaction in the chain.
 pub type Index = u32;
@@ -322,6 +333,65 @@ impl pallet_legacy::Config for Runtime {
 	type WeightInfo = pallet_legacy::weights::SubstrateWeight<Runtime>;
 }
 
+#[derive(
+	Encode, Decode, Eq, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum CurrencyId {
+	MECH,
+	DOT,
+	TEST,
+}
+
+trait MultiExistentialDeposit {
+	fn existential_deposit(currency_id: CurrencyId) -> Balance;
+}
+
+impl MultiExistentialDeposit for CurrencyId {
+	fn existential_deposit(currency_id: CurrencyId) -> Balance {
+		match currency_id {
+			CurrencyId::MECH => EXISTENTIAL_DEPOSIT,
+			_ => Zero::zero(),
+		}
+	}
+}
+
+type ReserveIdentifier = [u8; 8];
+
+type MaxLocks = ConstU32<50>;
+
+use orml_traits::parameter_type_with_key;
+parameter_type_with_key! {
+	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
+		CurrencyId::existential_deposit(*currency_id)
+	};
+}
+
+impl orml_tokens::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type Amount = Amount;
+	type CurrencyId = CurrencyId;
+	type WeightInfo = ();
+	type ExistentialDeposits = ExistentialDeposits;
+	type CurrencyHooks = ();
+	type MaxLocks = MaxLocks;
+	type MaxReserves = ();
+	type ReserveIdentifier = ReserveIdentifier;
+	type DustRemovalWhitelist = ();
+}
+
+parameter_types! {
+	pub const GetNativeCurrencyId: CurrencyId = CurrencyId::MECH;
+}
+
+impl orml_currencies::Config for Runtime {
+	type MultiCurrency = Tokens;
+	type NativeCurrency = BasicCurrencyAdapter<Runtime, Balances, Amount, BlockNumber>;
+	type GetNativeCurrencyId = GetNativeCurrencyId;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -341,6 +411,8 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		Legacy: pallet_legacy,
+		Currencies: orml_currencies,
+		Tokens: orml_tokens,
 	}
 );
 

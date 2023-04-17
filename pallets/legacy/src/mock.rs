@@ -76,7 +76,7 @@ impl pallet_legacy::Config for Test {
 	type SubmissionDeposit = ();
 	type MinContribution = ();
 	type RetirementPeriod = ();
-	type WeightInfo = ();
+	type WeightInfo = pallet_legacy::weights::SubstrateWeight<Test>;
 }
 
 /// Existential deposit.
