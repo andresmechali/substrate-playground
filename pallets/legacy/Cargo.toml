@@ -1,6 +1,6 @@
 [package]
 name = "pallet-legacy"
-version = "4.0.0-dev"
+version = "0.1.0"
 description = "Pallet for leaving secrets in the blockchain."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io"

@@ -53,8 +53,9 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "h
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true , branch = "polkadot-v0.9.37" }
 
 # Local Dependencies
-pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
-pallet-legacy = { version = "4.0.0-dev", default-features = false, path = "../pallets/legacy" }
+pallet-template = { version = "0.1.0", default-features = false, path = "../pallets/template" }
+pallet-legacy = { version = "0.1.0", default-features = false, path = "../pallets/legacy" }
+assets-registry = { version = "0.1.0", default-features = false, path = "../pallets/assets-registry" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", optional = true , branch = "polkadot-v0.9.37" }

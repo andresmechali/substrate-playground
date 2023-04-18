@@ -64,6 +64,8 @@ pub use pallet_template;
 /// Import the legacy pallet.
 pub use pallet_legacy;
 
+pub use assets_registry;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -333,6 +335,12 @@ impl pallet_legacy::Config for Runtime {
 	type WeightInfo = pallet_legacy::weights::SubstrateWeight<Runtime>;
 }
 
+impl assets_registry::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+
+	type RegisteredAssetId = u32;
+}
+
 #[derive(
 	Encode, Decode, Eq, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
 )]
@@ -413,6 +421,7 @@ construct_runtime!(
 		Legacy: pallet_legacy,
 		Currencies: orml_currencies,
 		Tokens: orml_tokens,
+		AssetsRegistry: assets_registry,
 	}
 );
 
