@@ -337,7 +337,7 @@ impl pallet_legacy::Config for Runtime {
 
 impl assets_registry::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-
+	type Balance = Balance;
 	type RegisteredAssetId = u32;
 }
 

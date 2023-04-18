@@ -7,7 +7,7 @@ mod traits;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::traits::Asset;
-	use frame_support::{pallet_prelude::*, Twox64Concat};
+	use frame_support::{pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
 
 	#[pallet::pallet]
@@ -15,20 +15,35 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type AssetsMap<T: Config> =
-		StorageMap<_, Twox64Concat, T::RegisteredAssetId, Asset<T::RegisteredAssetId>, OptionQuery>;
+	pub(super) type AssetsMap<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::RegisteredAssetId,
+		Asset<T::RegisteredAssetId, T::Balance>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub(super) type ExistentialDeposits<T: Config> =
+		StorageMap<_, Twox64Concat, T::RegisteredAssetId, T::Balance, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Asset has already been registered
+		/// Asset has already been registered.
 		AssetAlreadyRegistered,
+		/// Asset does not exist.
+		AssetDoesNotExist,
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// New asset has been registered
+		/// New asset has been registered.
 		AssetRegistered(T::RegisteredAssetId),
+		/// Asset has been updated.
+		AssetUpdated(T::RegisteredAssetId),
+		/// Asset has been deleted.
+		AssetDeleted(T::RegisteredAssetId),
 	}
 
 	#[pallet::config]
@@ -42,6 +57,8 @@ pub mod pallet {
 			+ Ord
 			+ Clone
 			+ Default;
+
+		type Balance: Balance;
 	}
 
 	// Pallet internal functions
@@ -52,12 +69,40 @@ pub mod pallet {
 		}
 
 		/// Registers asset.
-		pub fn do_register_asset(asset: Asset<T::RegisteredAssetId>) -> DispatchResultWithPostInfo {
+		pub fn do_register_asset(
+			asset: Asset<T::RegisteredAssetId, T::Balance>,
+		) -> DispatchResultWithPostInfo {
 			let asset_id = asset.asset_id;
 			ensure!(!Self::is_asset_registered(&asset_id), Error::<T>::AssetAlreadyRegistered);
+			ExistentialDeposits::<T>::insert(asset_id, &asset.existential_deposit);
 			AssetsMap::<T>::insert(asset_id, asset);
 
 			Self::deposit_event(Event::AssetRegistered(asset_id));
+
+			Ok(().into())
+		}
+
+		/// Update asset.
+		pub fn do_update_asset(
+			asset: Asset<T::RegisteredAssetId, T::Balance>,
+		) -> DispatchResultWithPostInfo {
+			let asset_id = asset.asset_id;
+			ensure!(Self::is_asset_registered(&asset_id), Error::<T>::AssetDoesNotExist);
+			ExistentialDeposits::<T>::insert(asset_id, &asset.existential_deposit);
+			AssetsMap::<T>::insert(asset_id, asset);
+
+			Self::deposit_event(Event::AssetUpdated(asset_id));
+
+			Ok(().into())
+		}
+
+		/// Delete asset.
+		pub fn do_delete_asset(asset_id: T::RegisteredAssetId) -> DispatchResultWithPostInfo {
+			ensure!(Self::is_asset_registered(&asset_id), Error::<T>::AssetDoesNotExist);
+			ExistentialDeposits::<T>::remove(asset_id);
+			AssetsMap::<T>::remove(asset_id);
+
+			Self::deposit_event(Event::AssetDeleted(asset_id));
 
 			Ok(().into())
 		}
@@ -70,10 +115,30 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn register_asset(
 			origin: OriginFor<T>,
-			asset: Asset<T::RegisteredAssetId>,
+			asset: Asset<T::RegisteredAssetId, T::Balance>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			Self::do_register_asset(asset)
+		}
+
+		#[pallet::weight(0)]
+		#[pallet::call_index(1)]
+		pub fn update_asset(
+			origin: OriginFor<T>,
+			asset: Asset<T::RegisteredAssetId, T::Balance>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			Self::do_update_asset(asset)
+		}
+
+		#[pallet::weight(0)]
+		#[pallet::call_index(2)]
+		pub fn delete_asset(
+			origin: OriginFor<T>,
+			asset_id: T::RegisteredAssetId,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			Self::do_delete_asset(asset_id)
 		}
 	}
 }
