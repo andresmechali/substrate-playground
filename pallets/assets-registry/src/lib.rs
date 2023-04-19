@@ -6,8 +6,8 @@ mod traits;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::traits::Asset;
-	use frame_support::{pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
+	use crate::traits::{Asset, AssetRegistryReader};
+	use frame_support::{inherent::Vec, pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
 
 	#[pallet::pallet]
@@ -105,6 +105,26 @@ pub mod pallet {
 			Self::deposit_event(Event::AssetDeleted(asset_id));
 
 			Ok(().into())
+		}
+	}
+
+	impl<T: Config> AssetRegistryReader<T::RegisteredAssetId, T::Balance> for Pallet<T> {
+		fn get_asset(
+			asset_id: T::RegisteredAssetId,
+		) -> Option<Asset<T::RegisteredAssetId, T::Balance>> {
+			AssetsMap::<T>::get(asset_id)
+		}
+
+		fn get_asset_name(asset_id: T::RegisteredAssetId) -> Option<Vec<u8>> {
+			AssetsMap::<T>::get(asset_id).map(|asset| asset.name)
+		}
+
+		fn get_asset_decimals(asset_id: T::RegisteredAssetId) -> Option<u8> {
+			AssetsMap::<T>::get(asset_id).map(|asset| asset.decimals)
+		}
+
+		fn get_asset_existential_deposit(asset_id: T::RegisteredAssetId) -> Option<T::Balance> {
+			ExistentialDeposits::<T>::get(asset_id)
 		}
 	}
 

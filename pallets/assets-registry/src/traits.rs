@@ -10,3 +10,10 @@ pub struct Asset<RegisteredAssetId, Balance> {
 	pub name: Vec<u8>,
 	pub existential_deposit: Balance,
 }
+
+pub trait AssetRegistryReader<RegisteredAssetId, Balance> {
+	fn get_asset(asset_id: RegisteredAssetId) -> Option<Asset<RegisteredAssetId, Balance>>;
+	fn get_asset_name(asset_id: RegisteredAssetId) -> Option<Vec<u8>>;
+	fn get_asset_decimals(asset_id: RegisteredAssetId) -> Option<u8>;
+	fn get_asset_existential_deposit(asset_id: RegisteredAssetId) -> Option<Balance>;
+}
