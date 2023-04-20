@@ -6,8 +6,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-// use sp_rpc::{list::ListOrValue, number::NumberOrHex};
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 #[rpc(client, server)]
@@ -38,16 +37,16 @@ where
 {
 	fn get_value(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u32> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_value(&at).map_err(runtime_error_into_rpc_err)
+		api.get_value(at).map_err(runtime_error_into_rpc_err)
 	}
 
 	fn get_assets_names(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<Vec<u8>>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_assets_names(&at).map_err(runtime_error_into_rpc_err)
+		api.get_assets_names(at).map_err(runtime_error_into_rpc_err)
 	}
 }
 

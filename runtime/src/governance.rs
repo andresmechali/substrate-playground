@@ -42,6 +42,7 @@ impl pallet_collective::Config for Runtime {
 	type MaxMembers = ConstU32<10>;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = ();
+	type SetMembersOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -86,4 +87,5 @@ impl pallet_democracy::Config for Runtime {
 	type MaxDeposits = ConstU32<100>;
 	type MaxBlacklisted = ConstU32<100>;
 	type Slash = ();
+	type SubmitOrigin = EnsureSigned<AccountId>;
 }
