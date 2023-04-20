@@ -1,0 +1,33 @@
+[package]
+name = "assets-registry-rpc"
+version = "1.0.0"
+edition = "2021"
+description = 'RPC methods for the assets registry pallet'
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+    "derive",
+] }
+#sp-rpc = { version = "19.0.0", default-features = false, features = ["derive"] }
+jsonrpsee = { version = "0.17.0", features = ["client", "server", "macros"] }
+
+
+# Substrate packages
+
+sp-api = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.37" }
+sp-blockchain = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.37" }
+sp-runtime = { default-features = false, version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.37" }
+
+# local packages
+assets-registry-runtime-api = { path = "./runtime-api", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "sp-api/std",
+    "sp-runtime/std",
+    "assets-registry-runtime-api/std"
+]

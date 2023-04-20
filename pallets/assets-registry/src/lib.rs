@@ -63,6 +63,10 @@ pub mod pallet {
 
 	// Pallet internal functions
 	impl<T: Config> Pallet<T> {
+		pub fn get_value() -> Option<u32> {
+			Some(123_u32)
+		}
+
 		/// Checks if asset is registered.
 		pub fn is_asset_registered(asset_id: &T::RegisteredAssetId) -> bool {
 			AssetsMap::<T>::contains_key(asset_id)

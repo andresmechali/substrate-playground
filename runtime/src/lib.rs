@@ -502,6 +502,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl assets_registry_runtime_api::AssetsRegistryApi<Block> for Runtime {
+		fn get_value() -> u32 {
+			AssetsRegistry::get_value().unwrap_or(0)
+		}
+	}
+
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
