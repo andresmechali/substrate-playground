@@ -12,7 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
     "derive",
 ] }
 #sp-rpc = { version = "19.0.0", default-features = false, features = ["derive"] }
-jsonrpsee = { version = "0.17.0", features = ["client", "server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["client", "server", "macros"] }
 
 
 # Substrate packages
