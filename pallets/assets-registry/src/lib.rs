@@ -67,6 +67,10 @@ pub mod pallet {
 			Some(123_u32)
 		}
 
+		pub fn get_assets_names() -> Vec<Vec<u8>> {
+			AssetsMap::<T>::iter().map(|(_, asset)| asset.name).collect()
+		}
+
 		/// Checks if asset is registered.
 		pub fn is_asset_registered(asset_id: &T::RegisteredAssetId) -> bool {
 			AssetsMap::<T>::contains_key(asset_id)

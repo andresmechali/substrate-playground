@@ -506,6 +506,10 @@ impl_runtime_apis! {
 		fn get_value() -> u32 {
 			AssetsRegistry::get_value().unwrap_or(0)
 		}
+
+		fn get_assets_names() -> Vec<Vec<u8>> {
+			AssetsRegistry::get_assets_names()
+		}
 	}
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {

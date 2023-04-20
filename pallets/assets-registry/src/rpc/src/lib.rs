@@ -14,6 +14,9 @@ use std::sync::Arc;
 pub trait AssetsRegistryApi<BlockHash> {
 	#[method(name = "assetsRegistry_getValue")]
 	fn get_value(&self, at: Option<BlockHash>) -> RpcResult<u32>;
+
+	#[method(name = "assetsRegistry_getAssetsNames")]
+	fn get_assets_names(&self, at: Option<BlockHash>) -> RpcResult<Vec<Vec<u8>>>;
 }
 
 pub struct AssetsRegistryPallet<C, Block> {
@@ -38,6 +41,13 @@ where
 		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
 		api.get_value(&at).map_err(runtime_error_into_rpc_err)
+	}
+
+	fn get_assets_names(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<Vec<u8>>> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+		api.get_assets_names(&at).map_err(runtime_error_into_rpc_err)
 	}
 }
 

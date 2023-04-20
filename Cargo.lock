@@ -385,6 +385,7 @@ dependencies = [
 name = "assets-registry-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "frame-support",
  "sp-api",
 ]
 
