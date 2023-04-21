@@ -11,7 +11,6 @@ pub mod pallet {
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]

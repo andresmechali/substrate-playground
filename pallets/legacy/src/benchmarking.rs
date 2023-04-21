@@ -8,10 +8,11 @@ mod benchmarking {
 		create_secret {
 			let b in 1 .. 10;
 			let caller = whitelisted_caller();
+			let mut count = 0_u32;
 		}: create_secret(RawOrigin::Signed(caller), whitelisted_caller(), SecretDuration::Seconds(1))
 		verify {
-			let c: u64 = b.into();
-			assert_eq!(SecretMap::<T>::iter().count() as u32, b);
+			count = count + 1;
+			assert_eq!(SecretMap::<T>::iter().count() as u32, count);
 		}
 	}
 

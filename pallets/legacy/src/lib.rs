@@ -94,9 +94,9 @@ pub mod pallet {
 	impl WeighData<(&bool, &u32)> for Conditional {
 		fn weigh_data(&self, (switch, val): (&bool, &u32)) -> Weight {
 			if *switch {
-				Weight::from_ref_time(val.saturating_mul(self.0) as u64)
+				Weight::from_parts(val.saturating_mul(self.0.clone()) as u64, 0_u64)
 			} else {
-				Weight::from_ref_time(self.0 as u64)
+				Weight::from_parts(self.0.clone() as u64, 0_u64)
 			}
 		}
 	}
@@ -136,7 +136,6 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
