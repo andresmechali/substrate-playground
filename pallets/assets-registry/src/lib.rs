@@ -9,6 +9,7 @@ pub mod pallet {
 	use crate::traits::{Asset, AssetRegistryReader};
 	use frame_support::{inherent::Vec, pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
+	use xcm::VersionedMultiLocation;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -25,6 +26,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ExistentialDeposits<T: Config> =
 		StorageMap<_, Twox64Concat, T::RegisteredAssetId, T::Balance, OptionQuery>;
+
+	#[pallet::storage]
+	pub(super) type LocationToAssetId<T: Config> =
+		StorageMap<_, Twox64Concat, VersionedMultiLocation, T::RegisteredAssetId, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -66,6 +71,13 @@ pub mod pallet {
 			Some(123_u32)
 		}
 
+		pub fn get_asset_by_location(
+			location: VersionedMultiLocation,
+		) -> Option<Asset<T::RegisteredAssetId, T::Balance>> {
+			let asset_id = LocationToAssetId::<T>::get(location)?;
+			AssetsMap::<T>::get(asset_id)
+		}
+
 		pub fn get_assets_names() -> Vec<Vec<u8>> {
 			AssetsMap::<T>::iter().map(|(_, asset)| asset.name).collect()
 		}
@@ -82,7 +94,10 @@ pub mod pallet {
 			let asset_id = asset.asset_id;
 			ensure!(!Self::is_asset_registered(&asset_id), Error::<T>::AssetAlreadyRegistered);
 			ExistentialDeposits::<T>::insert(asset_id, &asset.existential_deposit);
-			AssetsMap::<T>::insert(asset_id, asset);
+			AssetsMap::<T>::insert(asset_id, asset.clone());
+			if let Some(location) = asset.location {
+				LocationToAssetId::<T>::insert(location, asset_id);
+			}
 
 			Self::deposit_event(Event::AssetRegistered(asset_id));
 
@@ -96,7 +111,15 @@ pub mod pallet {
 			let asset_id = asset.asset_id;
 			ensure!(Self::is_asset_registered(&asset_id), Error::<T>::AssetDoesNotExist);
 			ExistentialDeposits::<T>::insert(asset_id, &asset.existential_deposit);
-			AssetsMap::<T>::insert(asset_id, asset);
+			let old_asset =
+				AssetsMap::<T>::get(asset_id).expect("Asset must exist for previous check");
+			AssetsMap::<T>::insert(asset_id, asset.clone());
+			if let Some(location) = asset.clone().location {
+				if let Some(old_location) = old_asset.location {
+					LocationToAssetId::<T>::remove(old_location);
+				}
+				LocationToAssetId::<T>::insert(location, asset_id);
+			}
 
 			Self::deposit_event(Event::AssetUpdated(asset_id));
 

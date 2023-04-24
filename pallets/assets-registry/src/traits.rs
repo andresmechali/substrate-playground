@@ -1,6 +1,7 @@
 pub use crate::*;
 
 use frame_support::{inherent::Vec, pallet_prelude::*};
+use xcm::VersionedMultiLocation;
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, TypeInfo, Clone, Debug)]
 pub struct Asset<RegisteredAssetId, Balance> {
@@ -8,6 +9,7 @@ pub struct Asset<RegisteredAssetId, Balance> {
 	pub decimals: u8,
 	pub name: Vec<u8>,
 	pub existential_deposit: Balance,
+	pub location: Option<VersionedMultiLocation>,
 }
 
 pub trait AssetRegistryReader<RegisteredAssetId, Balance> {
