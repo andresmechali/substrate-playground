@@ -48,6 +48,9 @@ pallet-democracy = { version = "4.0.0-dev", default-features = false, git = "htt
 pallet-collective = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-preimage = { version = "4.0.0-dev", default-features = false , git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
@@ -108,7 +111,10 @@ std = [
 	"orml-currencies/std",
 	"orml-tokens/std",
 	"orml-traits/std",
-	"assets-registry-runtime-api/std"
+	"assets-registry-runtime-api/std",
+	"xcm/std",
+	"xcm-builder/std",
+	"xcm-executor/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
