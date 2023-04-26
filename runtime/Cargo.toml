@@ -43,14 +43,27 @@ smallvec = { version = "1.10.0", default-features = false }
 orml-currencies = { version = "0.4.1-dev", default-features = false, git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch = "polkadot-v0.9.40" }
 orml-tokens = { version = "0.4.1-dev", default-features = false, git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch = "polkadot-v0.9.40" }
 orml-traits = { version = "0.4.1-dev", default-features = false, git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch = "polkadot-v0.9.40" }
+orml-xcm-support = { version = "0.4.1-dev", default-features = false, git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch = "polkadot-v0.9.40" }
+orml-xtokens = { version = "0.4.1-dev", default-features = false, git = "https://github.com/open-web3-stack/open-runtime-module-library.git", branch = "polkadot-v0.9.40" }
 serde = { version = "1.0.160", default-features = false, features = [ "derive" ] }
 pallet-democracy = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-collective = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 pallet-preimage = { version = "4.0.0-dev", default-features = false , git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+pallet-xcm = { version = "0.9.40", default-features = false , git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
 xcm = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.40" }
+parachain-info = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-primitives-timestamp = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "release-v0.9.400" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
@@ -114,7 +127,20 @@ std = [
 	"assets-registry-runtime-api/std",
 	"xcm/std",
 	"xcm-builder/std",
-	"xcm-executor/std"
+	"xcm-executor/std",
+	"pallet-xcm/std",
+	"parachain-info/std",
+	"polkadot-primitives/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-timestamp/std",
+	"cumulus-primitives-utility/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-pallet-dmp-queue/std",
+	"polkadot-parachain/std",
+	"orml-xcm-support/std",
+	"orml-xtokens/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

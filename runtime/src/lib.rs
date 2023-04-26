@@ -32,6 +32,8 @@ use serde::{Deserialize, Serialize};
 
 mod governance;
 
+mod xcm_config;
+
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -223,7 +225,7 @@ impl frame_system::Config for Runtime {
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	/// The set code logic, just the default since we're not a parachain.
-	type OnSetCode = ();
+	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
@@ -245,6 +247,31 @@ impl pallet_grandpa::Config for Runtime {
 
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
+}
+
+impl parachain_info::Config for Runtime {}
+
+/// We allow for 0.5 seconds of compute with a 12 second average block time.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	polkadot_primitives::v2::MAX_POV_SIZE as u64,
+);
+
+parameter_types! {
+	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+}
+
+impl cumulus_pallet_parachain_system::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OnSystemEvent = ();
+	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type OutboundXcmpMessageSource = XcmpQueue;
+	type DmpMessageHandler = DmpQueue;
+	type ReservedDmpWeight = ReservedDmpWeight;
+	type XcmpMessageHandler = XcmpQueue;
+	type ReservedXcmpWeight = ReservedXcmpWeight;
+	type CheckAssociatedRelayNumber = cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -421,6 +448,12 @@ construct_runtime!(
 		Collective: pallet_collective,
 		Scheduler: pallet_scheduler,
 		Preimage: pallet_preimage,
+		XcmPallet: pallet_xcm,
+		ParachainInfo: parachain_info,
+		ParachainSystem: cumulus_pallet_parachain_system,
+		DmpQueue: cumulus_pallet_dmp_queue,
+		XcmpQueue: cumulus_pallet_xcmp_queue,
+		XTokens: orml_xtokens,
 	}
 );
 

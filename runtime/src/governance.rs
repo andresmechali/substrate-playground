@@ -1,9 +1,27 @@
 use crate::*;
-use frame_support::{parameter_types, traits::EqualPrivilegeOnly};
+use frame_support::{
+	instances::{Instance1, Instance2},
+	parameter_types,
+	traits::{EitherOfDiverse, EqualPrivilegeOnly},
+};
 use frame_system::EnsureRoot;
+use pallet_collective::EnsureProportionAtLeast;
 use sp_core::ConstU32;
 
 use pallet_preimage;
+
+pub type NativeCouncilCollective = Instance1;
+pub type NativeTechnicalCollective = Instance2;
+
+pub type EnsureRootOrHalfNativeTechnical = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	EnsureProportionAtLeast<AccountId, NativeTechnicalCollective, 1, 2>,
+>;
+
+pub type EnsureRootOrTwoThirdNativeCouncil = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	EnsureProportionAtLeast<AccountId, NativeCouncilCollective, 2, 3>,
+>;
 
 impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -55,7 +73,7 @@ parameter_types! {
 	pub const MaxVotes: u32 = 100;
 	pub const MaxProposals: u32 = 100;
 	pub const DemocracyId: LockIdentifier = *b"democrac";
-	pub RootOrigin: RuntimeOrigin = frame_system::RawOrigin::Root.into();
+	// pub RootOrigin: RuntimeOrigin = frame_system::RawOrigin::Root.into();
 }
 
 impl pallet_democracy::Config for Runtime {
