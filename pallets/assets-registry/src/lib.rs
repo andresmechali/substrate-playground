@@ -9,7 +9,7 @@ pub mod pallet {
 	use crate::traits::{Asset, AssetRegistryReader};
 	use frame_support::{inherent::Vec, pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
-	use xcm::latest::MultiLocation;
+	use xcm::v3::MultiLocation;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
