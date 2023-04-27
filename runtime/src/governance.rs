@@ -52,12 +52,12 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const GeneralCouncilMotionDuration: BlockNumber = 3 * DAYS;
+	pub const GeneralCouncilMotionDuration: BlockNumber = 5 * MINUTES;
 	pub const CouncilDefaultMaxProposals: u32 = 20;
 	pub const CouncilDefaultMaxMembers: u32 = 30;
 }
 
-impl pallet_collective::Config<Instance1> for Runtime {
+impl pallet_collective::Config<NativeCouncilCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -70,10 +70,10 @@ impl pallet_collective::Config<Instance1> for Runtime {
 }
 
 parameter_types! {
-	pub const TechnicalCouncilMotionDuration: BlockNumber = 3 * DAYS;
+	pub const TechnicalCouncilMotionDuration: BlockNumber = 5 * MINUTES;
 }
 
-impl pallet_collective::Config<Instance2> for Runtime {
+impl pallet_collective::Config<NativeTechnicalCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

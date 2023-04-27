@@ -454,6 +454,7 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system,
 		DmpQueue: cumulus_pallet_dmp_queue,
 		XcmpQueue: cumulus_pallet_xcmp_queue,
+		CumulusXcm: cumulus_pallet_xcm,
 		XTokens: orml_xtokens,
 	}
 );

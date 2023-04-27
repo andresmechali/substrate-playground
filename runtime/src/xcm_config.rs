@@ -1,6 +1,6 @@
 use super::{
-	parameter_types, AccountId, AssetsRegistry, Balance, Balances, ConstU32, DmpQueue,
-	ParachainInfo, ParachainSystem, RuntimeCall, XcmPallet, XcmpQueue,
+	parameter_types, AccountId, AssetsRegistry, Balance, Balances, ConstU32, ParachainInfo,
+	ParachainSystem, RuntimeCall, XcmPallet, XcmpQueue,
 };
 use crate::{
 	governance::{EnsureRootOrHalfNativeTechnical, EnsureRootOrTwoThirdNativeCouncil},
@@ -17,7 +17,7 @@ use frame_support::{
 };
 use orml_traits::{
 	location::{AbsoluteReserveProvider, RelativeReserveProvider},
-	parameter_type_with_key, GetByKey, WeightToFeeConverter,
+	parameter_type_with_key, GetByKey,
 };
 use orml_xcm_support::MultiNativeAsset;
 use pallet_xcm::XcmPassthrough;
@@ -41,14 +41,13 @@ use xcm_executor::{traits::DropAssets, Assets, XcmExecutor};
 
 parameter_types! {
 	pub NativeTokenExistentialDeposit: Balance = 0; // TODO: get proper ED
-	pub const BaseXcmWeight: Weight = Weight::from_ref_time(100_000_000);
+	pub const BaseXcmWeight: Weight = Weight::from_parts(100_000_000, 0);
 	pub const XcmMaxAssetsForTransfer: usize = 2;
 	pub const TokenLocation: MultiLocation = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
-	pub const UnitWeightCost: Weight = Weight::from_ref_time(200_000_000);
+	pub const UnitWeightCost: Weight = Weight::from_parts(200_000_000, 0);
 	pub const MaxInstructions: u32 = 100;
-	pub const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	pub DotPerSecond: (AssetId, u128, u128) = (MultiLocation::parent().into(), 1, 0);
 	pub RelayOrigin: cumulus_pallet_xcm::Origin = cumulus_pallet_xcm::Origin::Relay;
 	pub CheckAccount: AccountId = XcmPallet::check_account();
@@ -69,23 +68,6 @@ pub type Barrier = (
 	AllowTopLevelPaidExecutionFrom<Everything>,
 	TakeWeightCredit,
 );
-
-// type AssetsIdConverter =
-// 	CurrencyIdConvert<ForeignXcm, primitives::topology::Picasso, ParachainInfo>;
-
-pub struct PriceConverter<AssetsRegistry, ForeignToNative>(
-	PhantomData<(AssetsRegistry, ForeignToNative)>,
-);
-
-// pub struct WellKnownForeignToNativePriceConverter;
-// impl ForeignToNativePriceConverter for WellKnownForeignToNativePriceConverter {
-// 	fn get_ratio(asset_id: CurrencyId) -> Option<Rational64> {
-// 		match asset_id {
-// 			CurrencyId::MECH => Some(rational!(1 / 1)),
-// 			_ => None,
-// 		}
-// 	}
-// }
 
 pub type Trader = FixedRateOfFungible<DotPerSecond, ToTreasury>;
 
@@ -116,30 +98,6 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
-// TODO: necessary?
-// TODO: move
-impl From<cumulus_pallet_xcm::Origin> for RuntimeOrigin {
-	fn from(value: cumulus_pallet_xcm::Origin) -> Self {
-		RuntimeOrigin::from(value)
-	}
-}
-
-// TODO: necessary?
-// TODO: move
-impl From<cumulus_pallet_xcm::Event<Runtime>> for RuntimeEvent {
-	fn from(event: cumulus_pallet_xcm::Event<Runtime>) -> Self {
-		RuntimeEvent::from(event)
-	}
-}
-
-// pub type XcmExecutor = runtime_common::XcmExecutor<
-// 	XcmConfig,
-// 	AccountId,
-// 	Balance,
-// 	LocationToAccountId,
-// 	module_evm_bridge::EVMBridge<Runtime>,
-// >;
-
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -169,14 +127,14 @@ parameter_types! {
 
 parameter_type_with_key! {
 	pub ParachainMinFee: |location: MultiLocation| -> Option<Balance> {
+		// TODO: implement properly
 		#[allow(clippy::match_ref_pats)] // false positive
 		#[allow(clippy::match_single_binding)]
 		let parents = location.parents;
 		let interior = location.first_interior();
 
-		let location = VersionedMultiLocation::V3(*location);
-		if let Some(Parachain(id)) = interior {
-			// TODO: do properly
+		let _location = VersionedMultiLocation::V3(*location);
+		if let Some(Parachain(_id)) = interior {
 			// if let Some(amount) = AssetsRegistry::min_xcm_fee(*id, location.into()) {
 			// 	return Some(amount)
 			// }
@@ -206,7 +164,8 @@ impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
 
 pub struct ToTreasury;
 impl TakeRevenue for ToTreasury {
-	fn take_revenue(revenue: MultiAsset) {
+	fn take_revenue(_revenue: MultiAsset) {
+		// TODO: implement
 		// if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = revenue {
 		// 	if let Some(currency_id) = CurrencyIdConvert::convert(location) {
 		// 		// let _ = Currencies::deposit(currency_id, &AcalaTreasuryAccount::get(), amount);
@@ -341,16 +300,15 @@ where
 		for asset in multi_assets {
 			if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = asset.clone() {
 				let currency_id = C::convert(location);
-				// burn asset(do nothing here) if convert result is None
 				if let Some(currency_id) = currency_id {
-					// let ed = ExistentialDepositsForDropAssets::<NC, NB, GK>::get(&currency_id);
-					// TODO: get proper ED
-					let ed = AssetsRegistry::get_asset_existential_deposit(currency_id as u32);
-					let ed = 0;
-					if amount < ed {
-						T::take_revenue(asset);
-					} else {
-						asset_traps.push(asset);
+					let maybe_ed =
+						AssetsRegistry::get_asset_existential_deposit(currency_id as u32);
+					if let Some(ed) = maybe_ed {
+						if amount < ed {
+							T::take_revenue(asset);
+						} else {
+							asset_traps.push(asset);
+						}
 					}
 				}
 			}
@@ -358,8 +316,8 @@ where
 		if !asset_traps.is_empty() {
 			X::drop_assets(origin, asset_traps.into(), context);
 		}
-		// TODO #2492: Put the real weight in there.
-		XcmWeight::from_ref_time(0)
+		// TODO: Put the real weight in there.
+		XcmWeight::from_parts(0, 0)
 	}
 }
 
@@ -406,8 +364,6 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 }
-
-pub type AssetTransactor = LocalAssetTransactor;
 
 pub type LocationConverter =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
