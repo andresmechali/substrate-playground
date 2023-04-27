@@ -154,7 +154,11 @@ fn testnet_genesis(
 		legacy: LegacyConfig { initial_nonce: 0_u64.into() },
 		transaction_payment: Default::default(),
 		tokens: Default::default(),
-		collective: Default::default(),
+		native_collective: Default::default(),
+		technical_collective: Default::default(),
 		democracy: Default::default(),
+		parachain_info: Default::default(),
+		parachain_system: Default::default(),
+		xcm_pallet: Default::default(),
 	}
 }

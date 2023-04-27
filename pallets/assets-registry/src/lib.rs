@@ -2,7 +2,7 @@
 
 pub use pallet::*;
 
-mod traits;
+pub mod traits;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {

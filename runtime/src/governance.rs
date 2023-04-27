@@ -51,13 +51,35 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_collective::Config for Runtime {
+parameter_types! {
+	pub const GeneralCouncilMotionDuration: BlockNumber = 3 * DAYS;
+	pub const CouncilDefaultMaxProposals: u32 = 20;
+	pub const CouncilDefaultMaxMembers: u32 = 30;
+}
+
+impl pallet_collective::Config<Instance1> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = ConstU32<10>;
-	type MaxProposals = ConstU32<10>;
-	type MaxMembers = ConstU32<10>;
+	type MotionDuration = GeneralCouncilMotionDuration;
+	type MaxProposals = CouncilDefaultMaxProposals;
+	type MaxMembers = CouncilDefaultMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = ();
+	type SetMembersOrigin = EnsureRoot<AccountId>;
+}
+
+parameter_types! {
+	pub const TechnicalCouncilMotionDuration: BlockNumber = 3 * DAYS;
+}
+
+impl pallet_collective::Config<Instance2> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = TechnicalCouncilMotionDuration;
+	type MaxProposals = CouncilDefaultMaxProposals;
+	type MaxMembers = CouncilDefaultMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<AccountId>;

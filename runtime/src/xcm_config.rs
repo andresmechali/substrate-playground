@@ -6,6 +6,8 @@ use crate::{
 	governance::{EnsureRootOrHalfNativeTechnical, EnsureRootOrTwoThirdNativeCouncil},
 	CurrencyId, ExistentialDeposits, GetNativeCurrencyId, Runtime, RuntimeEvent, RuntimeOrigin,
 };
+use assets_registry::traits::AssetRegistryReader;
+// use cumulus_pallet_xcm::Origin as CumulusXcmOrigin;
 use cumulus_primitives_utility::ParentAsUmp;
 use frame_support::{
 	dispatch::Weight,
@@ -48,7 +50,7 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	pub DotPerSecond: (AssetId, u128, u128) = (MultiLocation::parent().into(), 1, 0);
-	pub RelayOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
+	pub RelayOrigin: cumulus_pallet_xcm::Origin = cumulus_pallet_xcm::Origin::Relay;
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) =(CheckAccount::get(), MintLocation::Local);
 	pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
@@ -114,6 +116,22 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
+// TODO: necessary?
+// TODO: move
+impl From<cumulus_pallet_xcm::Origin> for RuntimeOrigin {
+	fn from(value: cumulus_pallet_xcm::Origin) -> Self {
+		RuntimeOrigin::from(value)
+	}
+}
+
+// TODO: necessary?
+// TODO: move
+impl From<cumulus_pallet_xcm::Event<Runtime>> for RuntimeEvent {
+	fn from(event: cumulus_pallet_xcm::Event<Runtime>) -> Self {
+		RuntimeEvent::from(event)
+	}
+}
+
 // pub type XcmExecutor = runtime_common::XcmExecutor<
 // 	XcmConfig,
 // 	AccountId,
@@ -158,9 +176,11 @@ parameter_type_with_key! {
 
 		let location = VersionedMultiLocation::V3(*location);
 		if let Some(Parachain(id)) = interior {
-			if let Some(amount) = AssetsRegistry::min_xcm_fee(*id, location.into()) {
-				return Some(amount)
-			}
+			// TODO: do properly
+			// if let Some(amount) = AssetsRegistry::min_xcm_fee(*id, location.into()) {
+			// 	return Some(amount)
+			// }
+			return Some(0)
 		}
 
 		match (parents, interior) {
@@ -177,15 +197,21 @@ impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
 		Some(MultiLocation::parent())
 	}
 }
+impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
+	fn convert(_location: MultiLocation) -> Option<CurrencyId> {
+		// TODO: implement properly
+		Some(CurrencyId::MECH)
+	}
+}
 
 pub struct ToTreasury;
 impl TakeRevenue for ToTreasury {
 	fn take_revenue(revenue: MultiAsset) {
-		if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = revenue {
-			if let Some(currency_id) = CurrencyIdConvert::convert(location) {
-				// let _ = Currencies::deposit(currency_id, &AcalaTreasuryAccount::get(), amount);
-			}
-		}
+		// if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = revenue {
+		// 	if let Some(currency_id) = CurrencyIdConvert::convert(location) {
+		// 		// let _ = Currencies::deposit(currency_id, &AcalaTreasuryAccount::get(), amount);
+		// 	}
+		// }
 	}
 }
 
@@ -319,7 +345,7 @@ where
 				if let Some(currency_id) = currency_id {
 					// let ed = ExistentialDepositsForDropAssets::<NC, NB, GK>::get(&currency_id);
 					// TODO: get proper ED
-					let ed = AssetsRegistry::get(currency_id);
+					let ed = AssetsRegistry::get_asset_existential_deposit(currency_id as u32);
 					let ed = 0;
 					if amount < ed {
 						T::take_revenue(asset);
@@ -334,6 +360,15 @@ where
 		}
 		// TODO #2492: Put the real weight in there.
 		XcmWeight::from_ref_time(0)
+	}
+}
+
+impl<X, T, C, NC, NB, GK> Convert<CurrencyId, Option<MultiLocation>>
+	for CustomDropAssets<X, T, C, NC, NB, GK>
+{
+	fn convert(_id: CurrencyId) -> Option<MultiLocation> {
+		// TODO: implement properly
+		Some(MultiLocation::parent())
 	}
 }
 
