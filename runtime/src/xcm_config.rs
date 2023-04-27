@@ -1,12 +1,14 @@
 use super::{
 	parameter_types, AccountId, AssetsRegistry, Balance, Balances, ConstU32, ParachainInfo,
-	ParachainSystem, RuntimeCall, XcmPallet, XcmpQueue,
+	ParachainSystem, RuntimeCall, Tokens, XcmPallet, XcmpQueue,
 };
 use crate::{
 	governance::{EnsureRootOrHalfNativeTechnical, EnsureRootOrTwoThirdNativeCouncil},
 	CurrencyId, ExistentialDeposits, GetNativeCurrencyId, Runtime, RuntimeEvent, RuntimeOrigin,
+	TreasuryPalletId,
 };
 use assets_registry::traits::AssetRegistryReader;
+use orml_traits::MultiCurrency;
 // use cumulus_pallet_xcm::Origin as CumulusXcmOrigin;
 use cumulus_primitives_utility::ParentAsUmp;
 use frame_support::{
@@ -23,7 +25,7 @@ use orml_xcm_support::MultiNativeAsset;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use polkadot_primitives::Id as ParaId;
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{AccountIdConversion, Convert};
 use sp_std::{marker::PhantomData, vec};
 use xcm::{
 	v3::{prelude::*, MultiLocation, Weight as XcmWeight},
@@ -150,27 +152,27 @@ parameter_type_with_key! {
 
 pub struct CurrencyIdConvert;
 impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
-	fn convert(_id: CurrencyId) -> Option<MultiLocation> {
-		// TODO: implement properly
-		Some(MultiLocation::parent())
+	fn convert(id: CurrencyId) -> Option<MultiLocation> {
+		AssetsRegistry::get_location_by_asset(id)
 	}
 }
 impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
-	fn convert(_location: MultiLocation) -> Option<CurrencyId> {
-		// TODO: implement properly
-		Some(CurrencyId::MECH)
+	fn convert(location: MultiLocation) -> Option<CurrencyId> {
+		AssetsRegistry::get_asset_id_by_location(location)
 	}
 }
 
 pub struct ToTreasury;
 impl TakeRevenue for ToTreasury {
-	fn take_revenue(_revenue: MultiAsset) {
-		// TODO: implement
-		// if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = revenue {
-		// 	if let Some(currency_id) = CurrencyIdConvert::convert(location) {
-		// 		// let _ = Currencies::deposit(currency_id, &AcalaTreasuryAccount::get(), amount);
-		// 	}
-		// }
+	fn take_revenue(revenue: MultiAsset) {
+		let treasury_pallet = TreasuryPalletId::get();
+		let treasury_account: AccountId = treasury_pallet.into_account_truncating();
+
+		if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = revenue {
+			if let Some(currency_id) = CurrencyIdConvert::convert(location) {
+				let _ = Tokens::deposit(currency_id, &treasury_account, amount);
+			}
+		}
 	}
 }
 
@@ -301,8 +303,7 @@ where
 			if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = asset.clone() {
 				let currency_id = C::convert(location);
 				if let Some(currency_id) = currency_id {
-					let maybe_ed =
-						AssetsRegistry::get_asset_existential_deposit(currency_id as u32);
+					let maybe_ed = AssetsRegistry::get_asset_existential_deposit(currency_id);
 					if let Some(ed) = maybe_ed {
 						if amount < ed {
 							T::take_revenue(asset);

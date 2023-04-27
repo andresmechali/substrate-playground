@@ -52,6 +52,7 @@ use frame_support::{
 	dispatch::{MaxEncodedLen, TypeInfo},
 	traits::LockIdentifier,
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	PalletId,
 };
 pub use frame_system::Call as SystemCall;
 use frame_system::EnsureSigned;
@@ -173,6 +174,11 @@ parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
+}
+
+// Pallet accounts
+parameter_types! {
+	pub const TreasuryPalletId: PalletId = PalletId(*b"mech/tsy");
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -360,14 +366,26 @@ impl pallet_legacy::Config for Runtime {
 impl assets_registry::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type RegisteredAssetId = u32;
+	type CurrencyId = CurrencyId;
 }
 
 #[derive(
-	Encode, Decode, Eq, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	Debug,
+	PartialOrd,
+	Ord,
+	TypeInfo,
+	MaxEncodedLen,
+	Default,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CurrencyId {
+	#[default]
 	MECH,
 	DOT,
 	TEST,

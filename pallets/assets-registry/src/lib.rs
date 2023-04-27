@@ -9,27 +9,22 @@ pub mod pallet {
 	use crate::traits::{Asset, AssetRegistryReader};
 	use frame_support::{inherent::Vec, pallet_prelude::*, traits::tokens::Balance, Twox64Concat};
 	use frame_system::{ensure_root, pallet_prelude::OriginFor};
-	use xcm::VersionedMultiLocation;
+	use xcm::latest::MultiLocation;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type AssetsMap<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::RegisteredAssetId,
-		Asset<T::RegisteredAssetId, T::Balance>,
-		OptionQuery,
-	>;
+	pub(super) type AssetsMap<T: Config> =
+		StorageMap<_, Twox64Concat, T::CurrencyId, Asset<T::CurrencyId, T::Balance>, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type ExistentialDeposits<T: Config> =
-		StorageMap<_, Twox64Concat, T::RegisteredAssetId, T::Balance, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type LocationToAssetId<T: Config> =
-		StorageMap<_, Twox64Concat, VersionedMultiLocation, T::RegisteredAssetId, OptionQuery>;
+		StorageMap<_, Twox64Concat, MultiLocation, T::CurrencyId, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -43,18 +38,18 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// New asset has been registered.
-		AssetRegistered(T::RegisteredAssetId),
+		AssetRegistered(T::CurrencyId),
 		/// Asset has been updated.
-		AssetUpdated(T::RegisteredAssetId),
+		AssetUpdated(T::CurrencyId),
 		/// Asset has been deleted.
-		AssetDeleted(T::RegisteredAssetId),
+		AssetDeleted(T::CurrencyId),
 	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type RegisteredAssetId: Parameter
+		type CurrencyId: Parameter
 			+ Member
 			+ Copy
 			+ MaybeSerializeDeserialize
@@ -72,10 +67,21 @@ pub mod pallet {
 		}
 
 		pub fn get_asset_by_location(
-			location: VersionedMultiLocation,
-		) -> Option<Asset<T::RegisteredAssetId, T::Balance>> {
+			location: MultiLocation,
+		) -> Option<Asset<T::CurrencyId, T::Balance>> {
 			let asset_id = LocationToAssetId::<T>::get(location)?;
 			AssetsMap::<T>::get(asset_id)
+		}
+
+		pub fn get_asset_id_by_location(location: MultiLocation) -> Option<T::CurrencyId> {
+			LocationToAssetId::<T>::get(location)
+		}
+
+		pub fn get_location_by_asset(asset_id: T::CurrencyId) -> Option<MultiLocation> {
+			if let Some(loc) = AssetsMap::<T>::get(asset_id).map(|asset| asset.location) {
+				return loc
+			}
+			return None
 		}
 
 		pub fn get_assets_names() -> Vec<Vec<u8>> {
@@ -83,13 +89,13 @@ pub mod pallet {
 		}
 
 		/// Checks if asset is registered.
-		pub fn is_asset_registered(asset_id: &T::RegisteredAssetId) -> bool {
+		pub fn is_asset_registered(asset_id: &T::CurrencyId) -> bool {
 			AssetsMap::<T>::contains_key(asset_id)
 		}
 
 		/// Registers asset.
 		pub fn do_register_asset(
-			asset: Asset<T::RegisteredAssetId, T::Balance>,
+			asset: Asset<T::CurrencyId, T::Balance>,
 		) -> DispatchResultWithPostInfo {
 			let asset_id = asset.asset_id;
 			ensure!(!Self::is_asset_registered(&asset_id), Error::<T>::AssetAlreadyRegistered);
@@ -106,7 +112,7 @@ pub mod pallet {
 
 		/// Update asset.
 		pub fn do_update_asset(
-			asset: Asset<T::RegisteredAssetId, T::Balance>,
+			asset: Asset<T::CurrencyId, T::Balance>,
 		) -> DispatchResultWithPostInfo {
 			let asset_id = asset.asset_id;
 			ensure!(Self::is_asset_registered(&asset_id), Error::<T>::AssetDoesNotExist);
@@ -127,7 +133,7 @@ pub mod pallet {
 		}
 
 		/// Delete asset.
-		pub fn do_delete_asset(asset_id: T::RegisteredAssetId) -> DispatchResultWithPostInfo {
+		pub fn do_delete_asset(asset_id: T::CurrencyId) -> DispatchResultWithPostInfo {
 			ensure!(Self::is_asset_registered(&asset_id), Error::<T>::AssetDoesNotExist);
 			ExistentialDeposits::<T>::remove(asset_id);
 			AssetsMap::<T>::remove(asset_id);
@@ -138,22 +144,20 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> AssetRegistryReader<T::RegisteredAssetId, T::Balance> for Pallet<T> {
-		fn get_asset(
-			asset_id: T::RegisteredAssetId,
-		) -> Option<Asset<T::RegisteredAssetId, T::Balance>> {
+	impl<T: Config> AssetRegistryReader<T::CurrencyId, T::Balance> for Pallet<T> {
+		fn get_asset(asset_id: T::CurrencyId) -> Option<Asset<T::CurrencyId, T::Balance>> {
 			AssetsMap::<T>::get(asset_id)
 		}
 
-		fn get_asset_name(asset_id: T::RegisteredAssetId) -> Option<Vec<u8>> {
+		fn get_asset_name(asset_id: T::CurrencyId) -> Option<Vec<u8>> {
 			AssetsMap::<T>::get(asset_id).map(|asset| asset.name)
 		}
 
-		fn get_asset_decimals(asset_id: T::RegisteredAssetId) -> Option<u8> {
+		fn get_asset_decimals(asset_id: T::CurrencyId) -> Option<u8> {
 			AssetsMap::<T>::get(asset_id).map(|asset| asset.decimals)
 		}
 
-		fn get_asset_existential_deposit(asset_id: T::RegisteredAssetId) -> Option<T::Balance> {
+		fn get_asset_existential_deposit(asset_id: T::CurrencyId) -> Option<T::Balance> {
 			ExistentialDeposits::<T>::get(asset_id)
 		}
 	}
@@ -165,7 +169,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn register_asset(
 			origin: OriginFor<T>,
-			asset: Asset<T::RegisteredAssetId, T::Balance>,
+			asset: Asset<T::CurrencyId, T::Balance>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			Self::do_register_asset(asset)
@@ -175,7 +179,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn update_asset(
 			origin: OriginFor<T>,
-			asset: Asset<T::RegisteredAssetId, T::Balance>,
+			asset: Asset<T::CurrencyId, T::Balance>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			Self::do_update_asset(asset)
@@ -185,7 +189,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		pub fn delete_asset(
 			origin: OriginFor<T>,
-			asset_id: T::RegisteredAssetId,
+			asset_id: T::CurrencyId,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			Self::do_delete_asset(asset_id)
