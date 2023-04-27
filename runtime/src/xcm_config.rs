@@ -82,7 +82,10 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 );
 
-pub type XcmOriginToTransactDispatchOrigin = (
+/// This is used to convert XCM origin (MultiLocation) to local RuntimeOrigin.
+/// This tuple contains multiple converters.
+/// Depending on the kind of the MultiLocation a different converter will be used.
+pub type XcmOriginToRuntimeOrigin = (
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain which they control.
@@ -97,6 +100,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// `Origin::Signed` origin of the same 32-byte value.
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+	// This bypasses the converter and passes MultiLocation as it is.
 	XcmPassthrough<RuntimeOrigin>,
 );
 
@@ -110,7 +114,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type VersionWrapper = XcmPallet;
 	type ChannelInfo = ParachainSystem;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type ControllerOriginConverter = XcmOriginToRuntimeOrigin;
 	type WeightInfo = cumulus_pallet_xcmp_queue::weights::SubstrateWeight<Self>;
 	type ControllerOrigin = EnsureRootOrHalfNativeTechnical;
 	type ExecuteOverweightOrigin = EnsureRootOrHalfNativeTechnical;
@@ -335,7 +339,7 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = XcmOriginToTransactDispatchOrigin;
+	type OriginConverter = XcmOriginToRuntimeOrigin;
 	type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
