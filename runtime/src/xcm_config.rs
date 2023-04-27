@@ -152,8 +152,8 @@ parameter_type_with_key! {
 
 pub struct CurrencyIdConvert;
 impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
-	fn convert(id: CurrencyId) -> Option<MultiLocation> {
-		AssetsRegistry::get_location_by_asset(id)
+	fn convert(asset_id: CurrencyId) -> Option<MultiLocation> {
+		AssetsRegistry::get_location_by_asset(asset_id)
 	}
 }
 impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
@@ -325,9 +325,8 @@ where
 impl<X, T, C, NC, NB, GK> Convert<CurrencyId, Option<MultiLocation>>
 	for CustomDropAssets<X, T, C, NC, NB, GK>
 {
-	fn convert(_id: CurrencyId) -> Option<MultiLocation> {
-		// TODO: implement properly
-		Some(MultiLocation::parent())
+	fn convert(asset_id: CurrencyId) -> Option<MultiLocation> {
+		AssetsRegistry::get_location_by_asset(asset_id)
 	}
 }
 
