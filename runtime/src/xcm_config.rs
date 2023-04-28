@@ -290,8 +290,8 @@ impl pallet_xcm::Config for Runtime {
 /// - `NC`: native currency_id type.
 /// - `NB`: the ExistentialDeposit amount of native currency_id.
 /// - `GK`: the ExistentialDeposit amount of tokens.
-pub struct CustomDropAssets<X, T, C, NC, NB, GK>(PhantomData<(X, T, C, NC, NB, GK)>);
-impl<X, T, C, NC, NB, GK> DropAssets for CustomDropAssets<X, T, C, NC, NB, GK>
+pub struct CustomAssetTrap<X, T, C, NC, NB, GK>(PhantomData<(X, T, C, NC, NB, GK)>);
+impl<X, T, C, NC, NB, GK> DropAssets for CustomAssetTrap<X, T, C, NC, NB, GK>
 where
 	X: DropAssets,
 	T: TakeRevenue,
@@ -327,7 +327,7 @@ where
 }
 
 impl<X, T, C, NC, NB, GK> Convert<CurrencyId, Option<MultiLocation>>
-	for CustomDropAssets<X, T, C, NC, NB, GK>
+	for CustomAssetTrap<X, T, C, NC, NB, GK>
 {
 	fn convert(asset_id: CurrencyId) -> Option<MultiLocation> {
 		AssetsRegistry::get_location_by_asset(asset_id)
@@ -347,8 +347,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = Trader;
 	type ResponseHandler = XcmPallet;
-	// TODO:
-	type AssetTrap = CustomDropAssets<
+	type AssetTrap = CustomAssetTrap<
 		XcmPallet,
 		ToTreasury,
 		CurrencyIdConvert,
