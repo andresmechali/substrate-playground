@@ -260,6 +260,30 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for XcmWeightInfo<T> {
 	}
 }
 
+/*
+pallet-xcm provides default implementations for many traits required by XcmConfig.
+It also provides an interface for creating XCM messages:
+- Primitive extrinsic:
+   - execute: Checks origin, message, and ensures no filter is blocking execution.
+   Executes message locally, on behalf of the origin account, and returns an event
+   with the outcome.
+   - send: Sends a message to a destination through the XcmRouter.
+- Asset transfer extrinsic:
+   - teleport_assets & limited_teleport_assets: Teleport an asset to another location.
+   The limited version also receives a weight limit.
+   - reserve_transfer_assets && limited_reserve_transfer_assets: Performs a reserve-backed
+   transfer.
+- Version negotiation extrinsic: (require root as origin)
+   - force_xcm_version: Modifies SupportedVersion storage (a map with the version
+   supported by different locations).
+   - force_default_xcm_version: Modifies SafeXcmVersion (version used as default when
+   destination version is unknown).
+   - force_subscribe_version_notify: Sends XCM message with SubscribeVersion to some
+   destination. This requests the current version, and asks to be notified whenever this
+   changes.
+   - force_unsubscribe_version_notify: Sends XCM message with UnsubscribeVersion to some
+   destination.
+*/
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
