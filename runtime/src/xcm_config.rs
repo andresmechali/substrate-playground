@@ -205,6 +205,7 @@ impl orml_xtokens::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 }
 
+/// This routes XCM messages that are not for local execution into the right message queues.
 pub type XcmRouter = (ParentAsUmp<ParachainSystem, XcmPallet, ()>, XcmpQueue);
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
@@ -341,6 +342,9 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToRuntimeOrigin;
 	type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
+	// Teleporting is disabled. In general, only trusted origins should be allowed to teleport
+	// assets, as this would act as minting, so assets should be burned in the origin. We need
+	// to control both chains.
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
